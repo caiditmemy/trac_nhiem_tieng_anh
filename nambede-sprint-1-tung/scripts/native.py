@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Linux local-only stack; owns only processes recorded with matching /proc start time."""
+from pathlib import Path
+import argparse, json, os, shutil, signal, socket, subprocess, time, urllib.request
+ROOT = Path(__file__).resolve().parents[1]
+CFG = json.loads((ROOT / 'scripts/branch.json').read_text())
+STATE = ROOT / '.runtime'
+
+def start_time(pid):
+    try:
+        return Path(f'/proc/{pid}/stat').read_text().split(') ', 1)[1].split()[19]
+    except FileNotFoundError:
+        return None
+
+def stop():
+    for name in ['web', 'gateway', 'auth', 'postgres']:
+        record = STATE / f'{name}.json'
+        if not record.exists(): continue
+        info = json.loads(record.read_text())
+        if start_time(info['pid']) == info['started']:
+            os.killpg(info['pid'], signal.SIGTERM)
+            for _ in range(200):
+                if start_time(info['pid']) is None: break
+                # A dead child can remain a zombie until its parent reaps it.
+                try:
+                    if Path(f"/proc/{info['pid']}/stat").read_text().split(') ',1)[1].startswith('Z'): break
+                except FileNotFoundError: break
+                time.sleep(.1)
+            else:
+                raise RuntimeError(f'{name} did not stop; keeping its ownership record')
+        record.unlink()
+    print('Stopped only this worktree processes; database retained.')
+
+def launch(name, command, cwd, env):
+    with (STATE / f'{name}.log').open('a') as log:
+        child = subprocess.Popen(command, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    (STATE / f'{name}.json').write_text(json.dumps({'pid': child.pid, 'started': start_time(child.pid)}))
+    return child
+
+def wait_url(url, child, timeout=120):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if child.poll() is not None: raise RuntimeError(f'Process exited: {url}; see .runtime/*.log')
+        try:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                if response.status == 200: return
+        except OSError: pass
+        time.sleep(.5)
+    raise RuntimeError(f'Timed out: {url}; see .runtime/*.log')
+
+def up():
+    STATE.mkdir(exist_ok=True)
+    if list(STATE.glob('*.json')): raise RuntimeError('Existing process records; run down before up')
+    # Check every port before creating data or launching any child. Never stop another listener.
+    sockets=[]
+    try:
+        for port in CFG['ports'].values():
+            s=socket.socket(); sockets.append(s); s.bind(('127.0.0.1',port))
+    finally:
+        for s in sockets: s.close()
+    pg=Path(os.environ.get('PG_BIN', '/usr/lib/postgresql/17/bin'))
+    java=Path(os.environ['JAVA_HOME'])/'bin/java' if 'JAVA_HOME' in os.environ else shutil.which('java')
+    for exe in [pg/'postgres', pg/'initdb', java, shutil.which('uv'), shutil.which('npm')]:
+        if not exe or not Path(exe).is_file(): raise RuntimeError(f'Missing runtime: {exe}; set JAVA_HOME and PG_BIN')
+    jar=ROOT/'services/auth-service/target/auth-service-0.1.0-SNAPSHOT.jar'
+    if not jar.exists() or not (ROOT/'web/node_modules').exists(): raise RuntimeError('Run make build first')
+    env=os.environ.copy()
+    env.setdefault("UV_CACHE_DIR", str(STATE/"uv-cache"))
+    env.update(PGPASSFILE="/dev/null", PGSERVICEFILE="/dev/null")
+    data=STATE/'pgdata'; sock=STATE/'socket'; sock.mkdir(exist_ok=True)
+    if not data.exists():
+        subprocess.run([str(pg/'initdb'),'-D',str(data),'-U',CFG['db_user'],'--auth=trust','--encoding=UTF8','--locale=C'],check=True,stdout=(STATE/'initdb.log').open('w'))
+    # Trust authentication is restricted to loopback on a private demo cluster, never an existing database.
+    try:
+        child=launch('postgres',[str(pg/'postgres'),'-D',str(data),'-h','127.0.0.1','-p',str(CFG['ports']['postgres']),'-k',str(sock)],ROOT,env)
+        for _ in range(100):
+            if child.poll() is not None: raise RuntimeError('Postgres exited; see .runtime/postgres.log')
+            try:
+                with socket.create_connection(('127.0.0.1',CFG['ports']['postgres']),timeout=.2): break
+            except OSError: time.sleep(.1)
+        # Use the existing psql client; only our isolated cluster is queried.
+        psql=shutil.which('psql') or str(pg/'psql')
+        dbargs=[psql,'-h','127.0.0.1','-p',str(CFG['ports']['postgres']),'-U',CFG['db_user'],'-d','postgres','-v','ON_ERROR_STOP=1']
+        for _ in range(100):
+            result=subprocess.run(dbargs+['-tAc',f"SELECT 1 FROM pg_database WHERE datname='{CFG['db']}'"],capture_output=True,text=True,env=env)
+            if result.returncode == 0: break
+            if child.poll() is not None: raise RuntimeError('Postgres exited before SQL readiness')
+            time.sleep(.1)
+        else: raise RuntimeError('Postgres SQL readiness timed out')
+        if result.stdout.strip()!='1': subprocess.run(dbargs+['-c',f"CREATE DATABASE {CFG['db']}"],check=True,env=env)
+        env.update(SERVER_ADDRESS='127.0.0.1',SERVER_PORT=str(CFG['ports']['auth']),SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{CFG['ports']['postgres']}/{CFG['db']}",SPRING_DATASOURCE_USERNAME=CFG['db_user'],SPRING_DATASOURCE_PASSWORD=CFG['db_password'],ADMIN_EMAIL=CFG['admin_email'],ADMIN_PASSWORD=CFG['admin_password'])
+        auth=launch('auth',[str(java),'-Xms64m','-Xmx256m','-jar',str(jar)],ROOT,env)
+        wait_url(f"http://127.0.0.1:{CFG['ports']['auth']}/actuator/health",auth)
+        env.update(AUTH_SERVICE_URL=f"http://127.0.0.1:{CFG['ports']['auth']}",JWKS_URL=f"http://127.0.0.1:{CFG['ports']['auth']}/.well-known/jwks.json",CORS_ORIGINS=f"http://127.0.0.1:{CFG['ports']['web']}")
+        gateway=launch('gateway',['uv','run','--locked','python','-m','uvicorn','gateway.main:app','--host','127.0.0.1','--port',str(CFG['ports']['gateway'])],ROOT/'services/gateway',env)
+        wait_url(f"http://127.0.0.1:{CFG['ports']['gateway']}/api/health",gateway)
+        web=launch('web',['npm','run','dev'],ROOT/'web',env)
+        wait_url(f"http://127.0.0.1:{CFG['ports']['web']}/api/health",web)
+    except BaseException:
+        stop(); raise
+    print(f"Ready: http://127.0.0.1:{CFG['ports']['web']} ({CFG['owner']})")
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__); parser.add_argument('action',choices=['up','down']); args=parser.parse_args()
+    up() if args.action=='up' else stop()
