@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older. The session (JWT and the signed-in user, see data/SessionStore.kt) never leaves the device:
+     a token restored from a backup would sign someone in on another phone. Everything else may be backed up. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="nambede.session.xml" />
+</full-backup-content>

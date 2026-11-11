@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and newer. The session (JWT and the signed-in user, see data/SessionStore.kt) is left out of both the
+     cloud backup and the transfer to a new phone; allowBackup="false" alone would not stop the transfer.
+     After a restore the student signs in again. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="nambede.session.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="nambede.session.xml" />
+    </device-transfer>
+</data-extraction-rules>
