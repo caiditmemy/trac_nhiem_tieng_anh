@@ -1,0 +1,1 @@
+Gateway của Sprint 1 (Nam): xác minh RS256/JWKS, kiểm tra phiên và chuyển tiếp `/api/auth`, `/api/users`, `/api/classes` đến Auth Service và Class Service. Mọi đường khác trả 404. Test: `uv run --locked pytest`.
