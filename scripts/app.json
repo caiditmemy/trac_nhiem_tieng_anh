@@ -1,0 +1,22 @@
+{
+  "owner": "sprint1",
+  "ports": {
+    "postgres": 55434,
+    "auth": 8104,
+    "class": 8114,
+    "exercise": 8124,
+    "learning": 8134,
+    "gateway": 8204,
+    "web": 5174
+  },
+  "databases": {
+    "auth": "auth_db",
+    "class": "class_db",
+    "exercise": "exercise_db",
+    "learning": "learning_db"
+  },
+  "db_user": "sprint1",
+  "db_password": "Local-sprint1-123",
+  "admin_email": "admin@sprint1.local",
+  "admin_password": "LocalAdmin@123"
+}

@@ -1,0 +1,1 @@
+Auth Service dùng chung của Sprint 1: Spring, PostgreSQL, Flyway, BCrypt, RS256/JWKS, phiên và quản lý người dùng cho ADMIN/TEACHER/STUDENT. Xem README gốc để build, chạy và kiểm thử ứng dụng tích hợp.
