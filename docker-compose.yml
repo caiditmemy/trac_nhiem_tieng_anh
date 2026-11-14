@@ -1,0 +1,195 @@
+name: nambede-sprint1-tung
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: sprint1
+      POSTGRES_PASSWORD: Local-sprint1-123
+      POSTGRES_DB: postgres
+    # Every published port is bound to 127.0.0.1 only: this computer can still call a service directly (Swagger of
+    # each service), nothing is reachable from the network. init/01-create-databases.sql makes auth_db, class_db,
+    # exercise_db and learning_db.
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # -h 127.0.0.1 on purpose: during first-start init the temporary server only
+      # listens on the unix socket, so a socket check would pass before the DBs exist.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      args:
+        SKIP_TESTS: ${SKIP_TESTS:-false}
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: sprint1
+      SPRING_DATASOURCE_PASSWORD: Local-sprint1-123
+      # RS256: the key pair is made on the first start and kept in auth_db.signing_keys, nothing to set
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
+      ADMIN_EMAIL: admin@sprint1.local
+      ADMIN_PASSWORD: LocalAdmin@123
+    ports:
+      - "127.0.0.1:8103:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  class-service:
+    build:
+      context: ./services/class-service
+      args:
+        SKIP_TESTS: ${SKIP_TESTS:-false}
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/class_db
+      SPRING_DATASOURCE_USERNAME: sprint1
+      SPRING_DATASOURCE_PASSWORD: Local-sprint1-123
+      # auth-service's public keys: tokens are verified here (RS256), never signed; names come from /users/lookup
+      JWKS_URL: http://auth-service:8081/.well-known/jwks.json
+      AUTH_SERVICE_URL: http://auth-service:8081
+    ports:
+      - "127.0.0.1:8113:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  learning-service:
+    build: ./services/learning-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://sprint1:Local-sprint1-123@postgres:5432/learning_db
+      JWKS_URL: http://auth-service:8081/.well-known/jwks.json
+      AUTH_SERVICE_URL: http://auth-service:8081
+    ports:
+      - "127.0.0.1:8133:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8084/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  exercise-service:
+    build:
+      context: ./services/exercise-service
+      args:
+        SKIP_TESTS: ${SKIP_TESTS:-false}
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/exercise_db
+      SPRING_DATASOURCE_USERNAME: sprint1
+      SPRING_DATASOURCE_PASSWORD: Local-sprint1-123
+      JWKS_URL: http://auth-service:8081/.well-known/jwks.json
+      # Checks the class in class-service and copies questions from learning-service
+      CLASS_SERVICE_URL: http://class-service:8082
+      LEARNING_SERVICE_URL: http://learning-service:8084
+    ports:
+      - "127.0.0.1:8123:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  gateway:
+    build: ./services/gateway
+    environment:
+      # auth-service's public keys: tokens are verified here (RS256), never signed
+      JWKS_URL: http://auth-service:8081/.well-known/jwks.json
+      AUTH_SERVICE_URL: http://auth-service:8081
+      CLASS_SERVICE_URL: http://class-service:8082
+      EXERCISE_SERVICE_URL: http://exercise-service:8083
+      LEARNING_SERVICE_URL: http://learning-service:8084
+      CORS_ORIGINS: http://127.0.0.1:5173
+    ports:
+      - "127.0.0.1:8203:8000"
+    # Only start order: the gateway must keep running when a service is down (it answers 502)
+    depends_on:
+      auth-service:
+        condition: service_started
+      class-service:
+        condition: service_started
+      exercise-service:
+        condition: service_started
+      learning-service:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # nginx serves the React build and forwards /api to this project gateway
+  web:
+    build: ./web
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      gateway:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  # Runs once after every `docker compose up`: demo accounts (teacher/student) and the demo data of this branch
+  # (scripts/demo.py, safe to run again). Then it exits; `docker compose ps -a` shows it.
+  demo-seed:
+    image: python:3.12-alpine
+    working_dir: /scripts
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["python", "demo.py", "--api", "http://web/api"]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      class-service:
+        condition: service_healthy
+      learning-service:
+        condition: service_healthy
+      exercise-service:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  pgdata: {}

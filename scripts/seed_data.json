@@ -1,0 +1,49 @@
+{
+  "topics": [
+    {
+      "name": "Thì hiện tại đơn",
+      "description": "Present simple",
+      "questions": [
+        {"Câu hỏi": "She ___ to school every day.", "Đáp án A": "go", "Đáp án B": "goes", "Đáp án C": "gone", "Đáp án D": "going", "Đáp án đúng": "B", "Giải thích": "Chủ ngữ số ít ở thì hiện tại đơn: động từ thêm -es."},
+        {"Câu hỏi": "My father ___ coffee every morning.", "Đáp án A": "drink", "Đáp án B": "drinks", "Đáp án C": "drank", "Đáp án D": "drinking", "Đáp án đúng": "B", "Giải thích": "He, she, it đi với động từ thêm -s."},
+        {"Câu hỏi": "They ___ English on Mondays.", "Đáp án A": "studies", "Đáp án B": "study", "Đáp án C": "studied", "Đáp án D": "studying", "Đáp án đúng": "B", "Giải thích": "Chủ ngữ số nhiều giữ nguyên động từ."},
+        {"Câu hỏi": "Water ___ at 100 degrees Celsius.", "Đáp án A": "boil", "Đáp án B": "boiled", "Đáp án C": "boils", "Đáp án D": "boiling", "Đáp án đúng": "C", "Giải thích": "Sự thật hiển nhiên dùng thì hiện tại đơn."},
+        {"Câu hỏi": "___ you like Vietnamese food?", "Đáp án A": "Does", "Đáp án B": "Do", "Đáp án C": "Is", "Đáp án D": "Are", "Đáp án đúng": "B", "Giải thích": "Câu hỏi với you dùng trợ động từ do."}
+      ]
+    },
+    {
+      "name": "Thì quá khứ đơn",
+      "description": "Past simple",
+      "questions": [
+        {"Câu hỏi": "Last summer we ___ to Quy Nhon beach.", "Đáp án A": "go", "Đáp án B": "goes", "Đáp án C": "went", "Đáp án D": "gone", "Đáp án đúng": "C", "Giải thích": "Last summer là mốc quá khứ nên dùng went."},
+        {"Câu hỏi": "She ___ her homework yesterday.", "Đáp án A": "finish", "Đáp án B": "finished", "Đáp án C": "finishes", "Đáp án D": "finishing", "Đáp án đúng": "B", "Giải thích": "Yesterday là dấu hiệu của thì quá khứ đơn."},
+        {"Câu hỏi": "Yesterday I ___ my grandparents.", "Đáp án A": "visit", "Đáp án B": "visits", "Đáp án C": "visited", "Đáp án D": "visiting", "Đáp án đúng": "C", "Giải thích": "Có yesterday nên dùng thì quá khứ đơn."},
+        {"Câu hỏi": "___ you see the match last night?", "Đáp án A": "Do", "Đáp án B": "Did", "Đáp án C": "Does", "Đáp án D": "Done", "Đáp án đúng": "B", "Giải thích": "Câu hỏi ở quá khứ dùng trợ động từ did."},
+        {"Câu hỏi": "He ___ in Hue in 2010.", "Đáp án A": "lives", "Đáp án B": "live", "Đáp án C": "lived", "Đáp án D": "living", "Đáp án đúng": "C", "Giải thích": "Năm 2010 đã qua nên dùng quá khứ đơn."}
+      ]
+    },
+    {
+      "name": "Từ vựng trường học",
+      "description": "School vocabulary",
+      "questions": [
+        {"Câu hỏi": "Which word means 'thư viện'?", "Đáp án A": "library", "Đáp án B": "laboratory", "Đáp án C": "canteen", "Đáp án D": "gym", "Đáp án đúng": "A", "Giải thích": "Library là thư viện, laboratory là phòng thí nghiệm."},
+        {"Câu hỏi": "A person who teaches at a university is a ___.", "Đáp án A": "lecturer", "Đáp án B": "pupil", "Đáp án C": "librarian", "Đáp án D": "principal", "Đáp án đúng": "A", "Giải thích": "Lecturer là giảng viên đại học."},
+        {"Câu hỏi": "The list of classes and their times is the ___.", "Đáp án A": "timetable", "Đáp án B": "textbook", "Đáp án C": "uniform", "Đáp án D": "semester", "Đáp án đúng": "A", "Giải thích": "Timetable là thời khóa biểu."},
+        {"Câu hỏi": "Which word means 'học kỳ'?", "Đáp án A": "semester", "Đáp án B": "subject", "Đáp án C": "campus", "Đáp án D": "degree", "Đáp án đúng": "A", "Giải thích": "Semester là học kỳ."},
+        {"Câu hỏi": "You write your answers on the exam ___.", "Đáp án A": "paper", "Đáp án B": "board", "Đáp án C": "desk", "Đáp án D": "bag", "Đáp án đúng": "A", "Giải thích": "Exam paper là đề thi, bài thi."}
+      ]
+    }
+  ],
+  "vocabulary": [
+    {"word": "persevere", "meaning": "kiên trì", "example": "If you persevere, you will pass the exam."},
+    {"word": "diligent", "meaning": "chăm chỉ", "example": "She is a diligent student."},
+    {"word": "semester", "meaning": "học kỳ", "example": "The first semester starts in September."},
+    {"word": "lecturer", "meaning": "giảng viên", "example": "Our lecturer gives clear explanations."},
+    {"word": "timetable", "meaning": "thời khóa biểu", "example": "Check the timetable before class."},
+    {"word": "assignment", "meaning": "bài tập được giao", "example": "The assignment is due on Friday."}
+  ],
+  "demo": {
+    "class": {"name": "Tiếng Anh 10A1", "description": "Lớp demo Sprint 1"},
+    "exercise": {"title": "Bài 1: Thì hiện tại và quá khứ", "description": "Làm trước buổi học tới.", "days": 7, "topics": {"Thì hiện tại đơn": 3, "Thì quá khứ đơn": 3}}
+  }
+}

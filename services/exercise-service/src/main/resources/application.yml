@@ -1,0 +1,44 @@
+server:
+  port: 8083
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: exercise-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/exercise_db}
+    username: ${SPRING_DATASOURCE_USERNAME:nambede}
+    password: ${SPRING_DATASOURCE_PASSWORD:nambede}
+    hikari:
+      maximum-pool-size: 5
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema (db/migration); Hibernate only checks it matches the entities
+      ddl-auto: validate
+
+# Every log line of a request shows its X-Request-ID (common.RequestIdFilter)
+logging:
+  pattern:
+    correlation: "[%X{requestId:-}] "
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+app:
+  jwt:
+    issuer: nambede-auth
+    # Public keys of auth-service: tokens are checked here (RS256), never signed
+    jwks-url: ${JWKS_URL:http://localhost:8081/.well-known/jwks.json}
+  # Other services, always called with the caller's token
+  class-service-url: ${CLASS_SERVICE_URL:http://localhost:8082}
+  learning-service-url: ${LEARNING_SERVICE_URL:http://localhost:8084}
+
+# Swagger UI keeps the token after a page reload
+springdoc:
+  swagger-ui:
+    persist-authorization: true

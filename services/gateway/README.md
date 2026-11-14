@@ -1,0 +1,1 @@
+Gateway của Sprint 1: xác minh RS256/JWKS, kiểm tra phiên và chuyển tiếp `/api/auth`, `/api/users`, `/api/classes`, `/api/exercises`, `/api/topics`, `/api/questions`, `/api/vocabularies` đến Auth, Class, Exercise và Learning Service. Test: `uv run --locked pytest`.
